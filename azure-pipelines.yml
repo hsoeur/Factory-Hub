@@ -1,0 +1,109 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr: none
+
+pool:
+  name: Default
+
+variables:
+  sshServiceConnection: factoryhub-vm-ssh
+  remoteRoot: /opt/factoryhub
+  containerName: factoryhub
+  imageName: factoryhub
+  hostPort: 12000
+
+steps:
+  - checkout: self
+    clean: true
+
+  - bash: |
+      set -euo pipefail
+      test -f dist/index.html
+      test -f dist/assets/amphitech-logo.png
+      test -f Dockerfile
+      test -f nginx.conf
+    displayName: Vérifier les fichiers du site
+
+  - bash: |
+      set -euo pipefail
+      staging="$(Build.ArtifactStagingDirectory)/factoryhub"
+      mkdir -p "$staging"
+      cp Dockerfile nginx.conf .dockerignore "$staging/"
+      cp -R dist "$staging/dist"
+    displayName: Préparer le déploiement
+
+  - task: CopyFilesOverSSH@0
+    displayName: Copier FactoryHub sur la VM
+    inputs:
+      sshEndpoint: $(sshServiceConnection)
+      sourceFolder: $(Build.ArtifactStagingDirectory)/factoryhub
+      contents: '**'
+      targetFolder: $(remoteRoot)/releases/$(Build.BuildId)
+      cleanTargetFolder: false
+      overwrite: true
+      readyTimeout: '20000'
+
+  - task: SSH@0
+    displayName: Déployer FactoryHub sur le port 12000
+    inputs:
+      sshEndpoint: $(sshServiceConnection)
+      runOptions: inline
+      failOnStdErr: false
+      readyTimeout: '20000'
+      inline: |
+        set -eu
+
+        RELEASE_DIR="$(remoteRoot)/releases/$(Build.BuildId)"
+        CONTAINER="$(containerName)"
+        NEW_IMAGE="$(imageName):$(Build.BuildId)"
+        HOST_PORT="$(hostPort)"
+
+        command -v docker >/dev/null 2>&1 || {
+          echo "Docker n'est pas installé sur la VM."
+          exit 1
+        }
+
+        cd "$RELEASE_DIR"
+        docker build --pull --tag "$NEW_IMAGE" .
+
+        PREVIOUS_IMAGE="$(docker inspect --format='{{.Config.Image}}' "$CONTAINER" 2>/dev/null || true)"
+        docker rm --force "$CONTAINER" >/dev/null 2>&1 || true
+
+        if ! docker run --detach \
+          --name "$CONTAINER" \
+          --restart unless-stopped \
+          --publish "$HOST_PORT:80" \
+          "$NEW_IMAGE"; then
+          echo "Le nouveau conteneur n'a pas démarré."
+          if [ -n "$PREVIOUS_IMAGE" ]; then
+            docker run --detach --name "$CONTAINER" --restart unless-stopped --publish "$HOST_PORT:80" "$PREVIOUS_IMAGE"
+          fi
+          exit 1
+        fi
+
+        STATUS="starting"
+        ATTEMPT=0
+        while [ "$ATTEMPT" -lt 15 ]; do
+          STATUS="$(docker inspect --format='{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo missing)"
+          [ "$STATUS" = "healthy" ] && break
+          [ "$STATUS" = "unhealthy" ] && break
+          ATTEMPT=$((ATTEMPT + 1))
+          sleep 2
+        done
+
+        if [ "$STATUS" != "healthy" ]; then
+          echo "FactoryHub n'est pas devenu disponible (état : $STATUS)."
+          docker logs "$CONTAINER" || true
+          docker rm --force "$CONTAINER" >/dev/null 2>&1 || true
+          if [ -n "$PREVIOUS_IMAGE" ]; then
+            echo "Restauration de la version précédente."
+            docker run --detach --name "$CONTAINER" --restart unless-stopped --publish "$HOST_PORT:80" "$PREVIOUS_IMAGE"
+          fi
+          exit 1
+        fi
+
+        echo "FactoryHub est disponible sur http://192.168.1.104:$HOST_PORT"
+
