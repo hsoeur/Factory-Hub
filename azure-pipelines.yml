@@ -5,13 +5,13 @@ trigger:
 
 pr: none
 
-# Agent Azure DevOps auto-hébergé directement sur VM-APP.
 pool:
-  name: FactoryHub-Windows
+  name: Default
   demands:
-    - Agent.OS -equals Windows_NT
+    - agent.name -equals VM-DEVOPS
 
 variables:
+  vmAppAddress: 192.168.1.104
   containerName: factoryhub
   imageName: factoryhub
   hostPort: 12000
@@ -36,73 +36,101 @@ steps:
         }
       }
 
-      docker version | Out-Host
-      if ($LASTEXITCODE -ne 0) {
-        throw 'Docker est absent ou inaccessible pour le compte de l’agent.'
-      }
-    displayName: Vérifier FactoryHub et Docker
+      $stagingDirectory = '$(Build.ArtifactStagingDirectory)\factoryhub'
+      New-Item -ItemType Directory -Force -Path $stagingDirectory | Out-Null
+      Copy-Item -LiteralPath 'Dockerfile', 'nginx.conf', '.dockerignore' -Destination $stagingDirectory
+      Copy-Item -LiteralPath 'dist' -Destination $stagingDirectory -Recurse
+    displayName: Préparer les fichiers de FactoryHub
 
-  - powershell: |
-      $ErrorActionPreference = 'Stop'
+  - task: WindowsMachineFileCopy@2
+    displayName: Copier FactoryHub sur VM-APP
+    inputs:
+      SourcePath: '$(Build.ArtifactStagingDirectory)\factoryhub'
+      MachineNames: '$(vmAppAddress)'
+      AdminUserName: '$(vmAppUsername)'
+      AdminPassword: '$(vmAppPassword)'
+      TargetPath: 'C:\FactoryHub\releases\$(Build.BuildId)'
+      CleanTargetBeforeCopy: false
+      CopyFilesInParallel: false
 
-      $containerName = '$(containerName)'
-      $newImage = '$(imageName):$(Build.BuildId)'
-      $hostPort = '$(hostPort)'
-      $previousImage = $null
+  - task: PowerShellOnTargetMachines@3
+    displayName: Déployer FactoryHub sur VM-APP
+    inputs:
+      Machines: '$(vmAppAddress):5986'
+      UserName: '$(vmAppUsername)'
+      UserPassword: '$(vmAppPassword)'
+      ScriptType: Inline
+      CommunicationProtocol: Https
+      AuthenticationMechanism: Default
+      NewPsSessionOptionArguments: '-IdleTimeout 7200000 -OperationTimeout 0 -OutputBufferingMode Block'
+      ErrorActionPreference: stop
+      failOnStderr: false
+      ignoreLASTEXITCODE: true
+      InlineScript: |
+        $containerName = 'factoryhub'
+        $newImage = 'factoryhub:$(Build.BuildId)'
+        $hostPort = '12000'
+        $releaseDirectory = 'C:\FactoryHub\releases\$(Build.BuildId)'
+        $previousImage = $null
 
-      $existingImage = docker inspect --format '{{.Config.Image}}' $containerName 2>$null
-      if ($LASTEXITCODE -eq 0) {
-        $previousImage = "$existingImage".Trim()
-      }
-
-      docker build --pull --tag $newImage .
-      if ($LASTEXITCODE -ne 0) {
-        throw "La construction de l’image $newImage a échoué."
-      }
-
-      docker rm --force $containerName 2>$null | Out-Null
-
-      docker run --detach `
-        --name $containerName `
-        --restart unless-stopped `
-        --publish "${hostPort}:80" `
-        $newImage | Out-Host
-
-      if ($LASTEXITCODE -ne 0) {
-        if ($previousImage) {
-          Write-Warning 'Échec du démarrage. Restauration de la version précédente.'
-          docker run --detach --name $containerName --restart unless-stopped --publish "${hostPort}:80" $previousImage | Out-Host
-        }
-        throw 'Le nouveau conteneur FactoryHub n’a pas démarré.'
-      }
-
-      $healthStatus = 'starting'
-      for ($attempt = 0; $attempt -lt 15; $attempt++) {
-        $healthStatus = docker inspect --format '{{.State.Health.Status}}' $containerName 2>$null
+        docker version | Out-Host
         if ($LASTEXITCODE -ne 0) {
-          $healthStatus = 'missing'
-        } else {
-          $healthStatus = "$healthStatus".Trim()
+          throw 'Docker est absent ou inaccessible sur VM-APP.'
         }
 
-        if ($healthStatus -eq 'healthy' -or $healthStatus -eq 'unhealthy') {
-          break
+        $existingImage = docker inspect --format '{{.Config.Image}}' $containerName 2>$null
+        if ($LASTEXITCODE -eq 0) {
+          $previousImage = "$existingImage".Trim()
         }
-        Start-Sleep -Seconds 2
-      }
 
-      if ($healthStatus -ne 'healthy') {
-        Write-Error "FactoryHub n’est pas disponible (état : $healthStatus)." -ErrorAction Continue
-        docker logs $containerName 2>&1 | Out-Host
+        Set-Location -LiteralPath $releaseDirectory
+        docker build --pull --tag $newImage .
+        if ($LASTEXITCODE -ne 0) {
+          throw "La construction de l’image $newImage a échoué."
+        }
+
         docker rm --force $containerName 2>$null | Out-Null
 
-        if ($previousImage) {
-          Write-Warning 'Restauration de la version précédente.'
-          docker run --detach --name $containerName --restart unless-stopped --publish "${hostPort}:80" $previousImage | Out-Host
-        }
-        throw 'Le contrôle de santé de FactoryHub a échoué.'
-      }
+        docker run --detach `
+          --name $containerName `
+          --restart unless-stopped `
+          --publish "${hostPort}:80" `
+          $newImage | Out-Host
 
-      Write-Host "FactoryHub est disponible sur http://192.168.1.104:$hostPort"
-    displayName: Déployer FactoryHub sur le port 12000
+        if ($LASTEXITCODE -ne 0) {
+          if ($previousImage) {
+            Write-Warning 'Échec du démarrage. Restauration de la version précédente.'
+            docker run --detach --name $containerName --restart unless-stopped --publish "${hostPort}:80" $previousImage | Out-Host
+          }
+          throw 'Le nouveau conteneur FactoryHub n’a pas démarré.'
+        }
+
+        $healthStatus = 'starting'
+        for ($attempt = 0; $attempt -lt 15; $attempt++) {
+          $healthStatus = docker inspect --format '{{.State.Health.Status}}' $containerName 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            $healthStatus = 'missing'
+          } else {
+            $healthStatus = "$healthStatus".Trim()
+          }
+
+          if ($healthStatus -eq 'healthy' -or $healthStatus -eq 'unhealthy') {
+            break
+          }
+          Start-Sleep -Seconds 2
+        }
+
+        if ($healthStatus -ne 'healthy') {
+          Write-Error "FactoryHub n’est pas disponible (état : $healthStatus)." -ErrorAction Continue
+          docker logs $containerName 2>&1 | Out-Host
+          docker rm --force $containerName 2>$null | Out-Null
+
+          if ($previousImage) {
+            Write-Warning 'Restauration de la version précédente.'
+            docker run --detach --name $containerName --restart unless-stopped --publish "${hostPort}:80" $previousImage | Out-Host
+          }
+          throw 'Le contrôle de santé de FactoryHub a échoué.'
+        }
+
+        Write-Host "FactoryHub est disponible sur http://192.168.1.104:$hostPort"
 
