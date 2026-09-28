@@ -177,9 +177,6 @@
   <script>
     // À adapter avec les ports réellement exposés sur VM-APP.
     const SERVICES = [
-      { id: 'production', name: 'Suivi de production', description: 'Consultez l’état des lignes et les indicateurs de production.', port: 3000, category: 'Gestion données production', icon: 'chart', color: '#202e67' },
-      { id: 'mes', name: 'MES', description: 'Ordres de fabrication, déclarations et suivi des opérations.', port: 8080, category: 'Gestion données production', icon: 'factory', color: '#ef3f3b' },
-      { id: 'quality', name: 'Portail Qualité', description: 'Contrôles, non-conformités et documents qualité.', port: 8081, category: 'Gestion données production', icon: 'check', color: '#4761ad' },
       { id: 'templates-etiquettes', name: 'Templates d’étiquettes', description: 'Gérez les modèles d’étiquettes utilisés en production.', port: 8005, category: 'Gestion données production', icon: 'book', color: '#4761ad' },
       { id: 'firmwares', name: 'Gestion des firmwares', description: 'Gérez les firmwares des produits de production.', port: 8011, category: 'Gestion données production', icon: 'bolt', color: '#e58c2c' },
       { id: 'tolerances', name: 'Tolérances de test', description: 'Gérez les tolérances des tests fonctionnels des produits.', port: 8016, category: 'Gestion données production', icon: 'chart', color: '#16856f' },
