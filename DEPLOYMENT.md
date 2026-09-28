@@ -1,20 +1,29 @@
-# Déploiement Azure DevOps
+# Déploiement Azure DevOps sur VM-APP
 
-La pipeline `azure-pipelines.yml` déploie FactoryHub dans un conteneur Nginx sur la VM `192.168.1.104` et publie le site sur le port `12000`.
+La pipeline `azure-pipelines.yml` s’exécute directement sur la VM Windows Server 2022 `192.168.1.104`. Elle construit une image Nginx contenant FactoryHub, démarre le conteneur `factoryhub` et publie le site sur le port `12000`.
 
-## Préparation unique dans Azure DevOps
+## Préparation unique de VM-APP
 
-1. Installer Docker sur la VM et autoriser le compte de déploiement à exécuter `docker`.
-   Créer également le dossier distant et lui donner comme propriétaire ce compte :
-   `sudo mkdir -p /opt/factoryhub/releases && sudo chown -R <utilisateur-ssh> /opt/factoryhub`.
-2. Dans **Project settings → Service connections**, créer une connexion **SSH** nommée `factoryhub-vm-ssh` :
-   - hôte : `192.168.1.104`
-   - port SSH : `22`
-   - authentification : clé SSH recommandée
-3. Autoriser cette connexion pour la pipeline.
-4. Utiliser un agent Azure DevOps du pool `Default` ayant accès au réseau `192.168.1.0/24`.
-5. Créer la pipeline à partir du fichier `azure-pipelines.yml` du dépôt.
+1. Vérifier que Docker fonctionne en mode **conteneurs Linux**. Le Dockerfile utilise l’image `nginx:alpine`, comme les autres interfaces du serveur qui reposent sur `/docker-entrypoint.sh`.
+2. Créer dans Azure DevOps un pool d’agents nommé `FactoryHub-Windows`.
+3. Installer un agent Azure DevOps auto-hébergé de ce pool directement sur VM-APP.
+4. Exécuter le service de l’agent avec un compte autorisé à utiliser Docker.
+5. Ouvrir le port TCP entrant `12000` dans le pare-feu Windows, depuis une console administrateur :
 
-Chaque commit sur `main` déclenche le déploiement. La pipeline construit d’abord la nouvelle image, remplace le conteneur `factoryhub`, vérifie son état de santé et restaure l’image précédente si le démarrage échoue.
+   ```powershell
+   New-NetFirewallRule -DisplayName "FactoryHub HTTP 12000" -Direction Inbound -Protocol TCP -LocalPort 12000 -Action Allow
+   ```
 
-Une fois déployé, le portail est accessible à l’adresse `http://192.168.1.104:12000`.
+6. Dans Azure DevOps, créer la pipeline à partir du fichier `azure-pipelines.yml` du dépôt.
+
+## Fonctionnement
+
+Chaque commit sur `main` déclenche un déploiement. La pipeline :
+
+1. vérifie les fichiers du site et l’accès à Docker ;
+2. construit l’image `factoryhub:<BuildId>` ;
+3. remplace le conteneur `factoryhub` en conservant l’image précédente ;
+4. attend que le contrôle de santé soit positif ;
+5. restaure automatiquement l’image précédente si le nouveau conteneur échoue.
+
+Après déploiement, FactoryHub est accessible à l’adresse `http://192.168.1.104:12000`.
