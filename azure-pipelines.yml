@@ -12,6 +12,7 @@ pool:
 
 variables:
   vmAppAddress: 192.168.1.104
+  vmAppUsername: 'VM-APP\adminprod'
   containerName: factoryhub
   imageName: factoryhub
   hostPort: 12000

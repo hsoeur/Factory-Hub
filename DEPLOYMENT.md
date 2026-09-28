@@ -4,17 +4,15 @@ La pipeline s’exécute sur l’agent `VM-DEVOPS` du pool `Default`, puis copie
 
 ## Configuration Azure DevOps
 
-Créer deux variables dans la pipeline ou dans un groupe de variables :
-
-- `vmAppUsername` : compte administrateur autorisé à se connecter à VM-APP ;
-- `vmAppPassword` : mot de passe du compte, enregistré comme variable secrète.
+Le compte distant est défini dans la pipeline sous la forme `VM-APP\adminprod`.
+Créer la variable `vmAppPassword` dans la pipeline ou dans un groupe de variables, puis l’enregistrer comme variable secrète avec le mot de passe du compte `adminprod`.
 
 ## Préparation unique de VM-APP
 
 1. Vérifier que Docker fonctionne en mode **conteneurs Linux**. Le Dockerfile utilise `nginx:alpine`, comme les autres interfaces du serveur qui reposent sur `/docker-entrypoint.sh`.
 2. Configurer WinRM HTTPS sur VM-APP avec un certificat approuvé par VM-DEVOPS, contenant `192.168.1.104` dans ses noms alternatifs, puis autoriser le port `5986` depuis VM-DEVOPS.
 3. Autoriser le partage de fichiers Windows entre VM-DEVOPS et VM-APP pour la copie distante.
-4. Vérifier que le compte `vmAppUsername` peut utiliser Docker sur VM-APP.
+4. Vérifier que le compte `VM-APP\adminprod` peut utiliser Docker sur VM-APP.
 5. Ouvrir le port HTTP de FactoryHub depuis une console PowerShell administrateur sur VM-APP :
 
    ```powershell
