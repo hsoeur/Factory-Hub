@@ -1,5 +1,7 @@
-trigger:
-  - main
+# Pipeline historique conservée pour référence. Gitea Actions prend le relais.
+# Désactiver également les déclencheurs éventuellement forcés dans l'interface Azure.
+trigger: none
+pr: none
 
 pool:
   name: Default

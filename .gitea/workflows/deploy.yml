@@ -1,0 +1,29 @@
+name: FactoryHub Windows deployment
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    # Do not add pull_request: this dedicated host has production access.
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows
+    steps:
+      - name: Checkout trusted main
+        # actions/checkout v4.2.2, immutable upstream commit; explicit Gitea URL.
+        uses: https://github.com/actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Local regression checks
+        shell: pwsh
+        run: |
+          & ./tests/ci/Test-Repository.ps1
+          & ./tests/ci/Test-Deploy.ps1
+      - name: Build and deploy
+        shell: pwsh
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_COMMIT: ${{ github.sha }}
+        run: ./scripts/ci/Publish-FactoryHub.ps1 -Commit $env:DEPLOY_COMMIT
