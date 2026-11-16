@@ -17,7 +17,7 @@ function Reset-Fake([bool]$Existing = $true) {
     $script:lockObserved = $false
 }
 function Invoke-Docker {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+    param([string[]]$Arguments)
     $a = $Arguments
     $script:calls.Add(($a -join ' '))
     # The OS lock must remain held even during rollback commands.

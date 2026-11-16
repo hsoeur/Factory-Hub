@@ -9,7 +9,7 @@ foreach ($secret in 'DEPLOY_SSH_KEY', 'DEPLOY_KNOWN_HOSTS') {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($secret))) { throw "Missing secret: $secret" }
 }
 function Invoke-Native {
-    param([string]$Command, [Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+    param([string]$Command, [string[]]$Arguments)
     & $Command @Arguments
     if ($LASTEXITCODE -ne 0) { throw "$Command failed (exit $LASTEXITCODE)." }
 }
@@ -46,25 +46,25 @@ try {
     $archive = Join-Path $temp 'image.tar'
     $os = & docker info --format '{{.OSType}}'
     if ($LASTEXITCODE -ne 0 -or $os.Trim() -ne 'linux') { throw 'Docker Linux daemon required on runner.' }
-    Invoke-Native docker @('build', '--pull', '--tag', $image, '.')
+    Invoke-Native -Command docker -Arguments @('build', '--pull', '--tag', $image, '.')
     $imageId = & docker image inspect --format '{{.Id}}' $image
     if ($LASTEXITCODE -ne 0 -or $imageId -cnotmatch '^sha256:[0-9a-f]{64}$') { throw 'Cannot identify built image.' }
-    Invoke-Native docker @('save', '--output', $archive, $image)
+    Invoke-Native -Command docker -Arguments @('save', '--output', $archive, $image)
     $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
     $prepare = "`$ErrorActionPreference='Stop'; New-Item -ItemType Directory -Force -Path '$remote' | Out-Null"
-    Invoke-Native ssh ($options + @($destination, 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + (ConvertTo-EncodedCommand $prepare)))
+    Invoke-Native -Command ssh -Arguments ($options + @($destination, 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + (ConvertTo-EncodedCommand $prepare)))
     $remoteCreated = $true
     # -O uses legacy SCP supported by Windows OpenSSH without requiring SFTP drive mapping.
     $scpPath = $remote.Replace('\', '/')
-    Invoke-Native scp ($options + @('-O', $archive, "${destination}:$scpPath/image.tar"))
-    Invoke-Native scp ($options + @('-O', (Join-Path $PSScriptRoot 'Deploy-Remote.ps1'), "${destination}:$scpPath/Deploy-Remote.ps1"))
+    Invoke-Native -Command scp -Arguments ($options + @('-O', $archive, "${destination}:$scpPath/image.tar"))
+    Invoke-Native -Command scp -Arguments ($options + @('-O', (Join-Path $PSScriptRoot 'Deploy-Remote.ps1'), "${destination}:$scpPath/Deploy-Remote.ps1"))
     $deploy = "`$ErrorActionPreference='Stop'; try { & '$remote\Deploy-Remote.ps1' -Archive '$remote\image.tar' -ArchiveSha256 '$hash' -ImageId '$imageId' -Commit '$Commit' -DeploymentId '$id'; exit 0 } catch { Write-Error `$_; exit 1 }"
-    Invoke-Native ssh ($options + @($destination, 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + (ConvertTo-EncodedCommand $deploy)))
+    Invoke-Native -Command ssh -Arguments ($options + @($destination, 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + (ConvertTo-EncodedCommand $deploy)))
 }
 finally {
     if ($remoteCreated) {
         $cleanup = "`$ErrorActionPreference='Stop'; Remove-Item -LiteralPath '$remote' -Recurse -Force"
-        try { Invoke-Native ssh ($options + @($destination, 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + (ConvertTo-EncodedCommand $cleanup))) }
+        try { Invoke-Native -Command ssh -Arguments ($options + @($destination, 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + (ConvertTo-EncodedCommand $cleanup))) }
         catch { Write-Warning "Remote staging cleanup failed for incoming-$id; remove it manually after confirming no deployment is active." }
     }
     if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force }

@@ -13,21 +13,21 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Invoke-Docker {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+    param([string[]]$Arguments)
     $output = & docker @Arguments 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Docker $($Arguments[0]) failed: $($output -join ' ')" }
     return ($output -join "`n")
 }
 
 function Get-ContainerNames {
-    return @((Invoke-Docker @('container', 'ls', '-a', '--format', '{{.Names}}')) -split "`r?`n")
+    return @((Invoke-Docker -Arguments @('container', 'ls', '-a', '--format', '{{.Names}}')) -split "`r?`n")
 }
 
 function Wait-Healthy {
     param([string]$Name, [int]$TimeoutSeconds)
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     do {
-        $items = @(ConvertFrom-Json (Invoke-Docker @('container', 'inspect', $Name)))
+        $items = @(ConvertFrom-Json (Invoke-Docker -Arguments @('container', 'inspect', $Name)))
         $state = $items[0].State
         if ($state.Status -ne 'running') { throw "Container $Name is not running." }
         if (-not $state.PSObject.Properties['Health']) { throw "Container $Name has no healthcheck." }
@@ -58,10 +58,10 @@ function Invoke-Deployment {
         if ((Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash -ne $ArchiveSha256) {
             throw 'Archive SHA256 mismatch.'
         }
-        $os = Invoke-Docker @('info', '--format', '{{.OSType}}')
+        $os = Invoke-Docker -Arguments @('info', '--format', '{{.OSType}}')
         if ($os.Trim() -ne 'linux') { throw 'The target Docker daemon must run Linux containers.' }
-        $null = Invoke-Docker @('load', '--input', $Archive)
-        $images = @(ConvertFrom-Json (Invoke-Docker @('image', 'inspect', $image)))
+        $null = Invoke-Docker -Arguments @('load', '--input', $Archive)
+        $images = @(ConvertFrom-Json (Invoke-Docker -Arguments @('image', 'inspect', $image)))
         $loaded = $images[0]
         if ($loaded.Id -cne $ImageId -or $loaded.Os -ne 'linux' -or
             $loaded.RepoTags -notcontains $image -or
@@ -79,13 +79,13 @@ function Invoke-Deployment {
         try {
             if ($hadPrevious) {
                 # Rename while still running: if rename fails, the old service is untouched.
-                $null = Invoke-Docker @('rename', $name, $backup)
+                $null = Invoke-Docker -Arguments @('rename', $name, $backup)
                 $renamed = $true
                 $stopAttempted = $true
-                $null = Invoke-Docker @('stop', '--time', '30', $backup)
+                $null = Invoke-Docker -Arguments @('stop', '--time', '30', $backup)
             }
             $runAttempted = $true
-            $null = Invoke-Docker @('run', '-d', '--name', $name, '--restart', 'unless-stopped',
+            $null = Invoke-Docker -Arguments @('run', '-d', '--name', $name, '--restart', 'unless-stopped',
                 '--label', "factoryhub.commit=$Commit", '-p', '12000:80', $image)
             Wait-Healthy $name $HealthTimeoutSeconds
             Write-Host "Deployment healthy: $Commit. Previous container retained: $backup (if present)."
@@ -94,11 +94,11 @@ function Invoke-Deployment {
             $deploymentError = $_
             try {
                 if ($runAttempted -and (@(Get-ContainerNames) -contains $name)) {
-                    $null = Invoke-Docker @('rm', '-f', $name)
+                    $null = Invoke-Docker -Arguments @('rm', '-f', $name)
                 }
                 if ($renamed) {
-                    $null = Invoke-Docker @('rename', $backup, $name)
-                    if ($stopAttempted) { $null = Invoke-Docker @('start', $name) }
+                    $null = Invoke-Docker -Arguments @('rename', $backup, $name)
+                    if ($stopAttempted) { $null = Invoke-Docker -Arguments @('start', $name) }
                     Wait-Healthy $name $HealthTimeoutSeconds
                     Write-Warning 'Previous container restored and healthy.'
                 }
