@@ -28,6 +28,10 @@
 - Image liée au commit, intégrité du transfert vérifiée avant bascule.
 - Précontrôles, exclusion concurrente côté cible, santé vérifiée et restauration
   de l'ancien conteneur en cas d'échec de la nouvelle version.
+- Numéro de run monotone contrôlé et persisté sous verrou cible : un ancien
+  build terminé après un plus récent doit être refusé avant toute bascule.
+- Transport Gitea/runner/checkout protégé par HTTPS validé, ou protection
+  équivalente explicitement approuvée avant utilisation des secrets.
 - Tests locaux des chemins de succès et d'échec, documentation d'activation.
 - Conservation du correctif de chargement sans Google Fonts.
 

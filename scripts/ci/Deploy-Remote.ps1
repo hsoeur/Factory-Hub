@@ -6,6 +6,7 @@ param(
     [string]$ImageId,
     [string]$Commit,
     [string]$DeploymentId,
+    [long]$Sequence,
     [string]$Root = 'C:\Deploy\containers\factoryhub_container',
     [int]$HealthTimeoutSeconds = 90
 )
@@ -38,10 +39,34 @@ function Wait-Healthy {
     } while ($true)
 }
 
+function Write-SequenceWatermark {
+    param([string]$Path, [long]$Sequence)
+    # Persist fully before atomic replacement, while deploy.lock is held. Never
+    # truncate the previous watermark: a partial numeric prefix could look valid.
+    $temporary = "$Path.$([Guid]::NewGuid().ToString('N')).tmp"
+    $stream = $null
+    try {
+        $stream = [IO.FileStream]::new($temporary, [IO.FileMode]::CreateNew,
+            [IO.FileAccess]::Write, [IO.FileShare]::None, 4096, [IO.FileOptions]::WriteThrough)
+        $bytes = [Text.Encoding]::ASCII.GetBytes($Sequence.ToString([Globalization.CultureInfo]::InvariantCulture))
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Flush($true)
+        $stream.Dispose()
+        $stream = $null
+        if ([IO.File]::Exists($Path)) { [IO.File]::Replace($temporary, $Path, [NullString]::Value) }
+        else { [IO.File]::Move($temporary, $Path) }
+    }
+    finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+        if ([IO.File]::Exists($temporary)) { [IO.File]::Delete($temporary) }
+    }
+}
+
 function Invoke-Deployment {
     param(
         [string]$Archive, [string]$ArchiveSha256, [string]$ImageId,
         [string]$Commit, [string]$DeploymentId, [string]$Root,
+        [Parameter(Mandatory)][ValidateRange(1, [long]::MaxValue)][long]$Sequence,
         [int]$HealthTimeoutSeconds = 90
     )
     if ($Commit -cnotmatch '^[0-9a-f]{40}$' -or $DeploymentId -cnotmatch '^[0-9a-f]{32}$' -or
@@ -54,7 +79,21 @@ function Invoke-Deployment {
     $lock = $null
     try {
         # Atomic, exclusive OS lock, held through validation AND rollback. Never delete it.
-        $lock = [IO.File]::Open((Join-Path $Root 'deploy.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+        try { $lock = [IO.File]::Open((Join-Path $Root 'deploy.lock'), 'OpenOrCreate', 'ReadWrite', 'None') }
+        catch { throw "Target deployment lock unavailable: $_" }
+        $watermark = Join-Path $Root 'deploy-sequence.txt'
+        [long]$highestSequence = 0
+        if (Test-Path -LiteralPath $watermark) {
+            $stored = [IO.File]::ReadAllText($watermark)
+            if ($stored -cnotmatch '^[1-9][0-9]*$' -or
+                -not [long]::TryParse($stored, [Globalization.NumberStyles]::None,
+                    [Globalization.CultureInfo]::InvariantCulture, [ref]$highestSequence)) {
+                throw 'Invalid deployment sequence watermark; administrator recovery required.'
+            }
+        }
+        if ($Sequence -le $highestSequence) {
+            throw "Stale deployment sequence $Sequence; highest accepted is $highestSequence. Start a new workflow run."
+        }
         if ((Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash -ne $ArchiveSha256) {
             throw 'Archive SHA256 mismatch.'
         }
@@ -73,6 +112,9 @@ function Invoke-Deployment {
         if ($names -contains $backup) { throw 'Backup name already exists.' }
         $hadPrevious = $names -contains $name
         if ($hadPrevious) { Wait-Healthy $name $HealthTimeoutSeconds }
+        # Acceptance is durable BEFORE any container mutation; retain on failure
+        # and rollback, so delayed older jobs can never replace this attempt.
+        Write-SequenceWatermark -Path $watermark -Sequence $Sequence
         $renamed = $false
         $stopAttempted = $false
         $runAttempted = $false
@@ -112,5 +154,5 @@ function Invoke-Deployment {
 
 if ($MyInvocation.InvocationName -ne '.') {
     Invoke-Deployment -Archive $Archive -ArchiveSha256 $ArchiveSha256 -ImageId $ImageId `
-        -Commit $Commit -DeploymentId $DeploymentId -Root $Root -HealthTimeoutSeconds $HealthTimeoutSeconds
+        -Commit $Commit -DeploymentId $DeploymentId -Root $Root -Sequence $Sequence -HealthTimeoutSeconds $HealthTimeoutSeconds
 }

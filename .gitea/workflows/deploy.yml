@@ -9,6 +9,8 @@ jobs:
     # Do not add pull_request: this dedicated host has production access.
     if: github.ref == 'refs/heads/main'
     runs-on: windows
+    permissions:
+      contents: read
     steps:
       - name: Checkout trusted main
         # actions/checkout v4.2.2, immutable upstream commit; explicit Gitea URL.
@@ -20,10 +22,12 @@ jobs:
         run: |
           & ./tests/ci/Test-Repository.ps1
           & ./tests/ci/Test-Deploy.ps1
+          & ./tests/ci/Test-Publish.ps1
       - name: Build and deploy
         shell: pwsh
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           DEPLOY_COMMIT: ${{ github.sha }}
-        run: ./scripts/ci/Publish-FactoryHub.ps1 -Commit $env:DEPLOY_COMMIT
+          DEPLOY_SEQUENCE: ${{ github.run_number }}
+        run: ./scripts/ci/Publish-FactoryHub.ps1 -Commit $env:DEPLOY_COMMIT -Sequence $env:DEPLOY_SEQUENCE

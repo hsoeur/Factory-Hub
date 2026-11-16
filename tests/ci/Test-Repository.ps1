@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot/../..").Path
 foreach ($script in @('scripts/ci/Deploy-Remote.ps1', 'scripts/ci/Publish-FactoryHub.ps1',
-    'tests/ci/Test-Deploy.ps1', 'tests/ci/Test-Repository.ps1')) {
+    'tests/ci/Test-Deploy.ps1', 'tests/ci/Test-Repository.ps1', 'tests/ci/Test-Publish.ps1')) {
     $errors = $null
     $tokens = $null
     $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $root $script), [ref]$tokens, [ref]$errors)
@@ -33,4 +33,18 @@ foreach ($expected in @('COPY nginx.conf /etc/nginx/conf.d/default.conf', 'COPY 
     if (-not $dockerfile.Contains($expected)) { throw "Dockerfile contract missing: $expected" }
 }
 if (-not (Test-Path (Join-Path $root 'dist/index.html'))) { throw 'Missing distribution.' }
+if (-not (Test-Path (Join-Path $root 'dist/assets/amphitech-logo.png'))) { throw 'Missing initial logo asset.' }
+$nginx = [IO.File]::ReadAllText((Join-Path $root 'nginx.conf'))
+if ($nginx -notmatch 'root\s+/usr/share/nginx/html;' -or $nginx -notmatch 'listen\s+80;') {
+    throw 'nginx/Docker runtime contract mismatch.'
+}
+$ignore = [IO.File]::ReadAllText((Join-Path $root '.dockerignore'))
+foreach ($included in '!Dockerfile', '!nginx.conf', '!dist/', '!dist/**') {
+    if (-not $ignore.Contains($included)) { throw "Docker build input excluded: $included" }
+}
+$workflow = [IO.File]::ReadAllText((Join-Path $root '.gitea/workflows/deploy.yml'))
+if (-not $workflow.Contains('DEPLOY_SEQUENCE: ${{ github.run_number }}') -or
+    -not $workflow.Contains('-Sequence $env:DEPLOY_SEQUENCE')) {
+    throw 'Workflow must transmit the Gitea run number via environment to Publish.'
+}
 Write-Host 'PASSED: PowerShell parsing, initial resources, node --check, Docker/dist contract.'

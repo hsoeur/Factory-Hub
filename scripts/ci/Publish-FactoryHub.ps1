@@ -1,10 +1,15 @@
 # Runner: Windows + PowerShell 7; target: Windows PowerShell 5.1.
 [CmdletBinding()]
-param([Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$Commit)
+param(
+    [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$Commit,
+    [Parameter(Mandatory)][ValidateRange(1, [long]::MaxValue)][long]$Sequence
+)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if (-not $IsWindows -or $PSVersionTable.PSVersion.Major -lt 7) { throw 'Windows PowerShell 7 runner required.' }
-foreach ($command in 'docker', 'ssh', 'scp') { $null = Get-Command $command -ErrorAction Stop }
+foreach ($command in 'docker', 'ssh', 'scp', 'git') { $null = Get-Command $command -ErrorAction Stop }
+$head = & git rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or $head -cne $Commit) { throw 'Checkout HEAD must match the deployment commit.' }
 foreach ($secret in 'DEPLOY_SSH_KEY', 'DEPLOY_KNOWN_HOSTS') {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($secret))) { throw "Missing secret: $secret" }
 }
@@ -51,14 +56,15 @@ try {
     if ($LASTEXITCODE -ne 0 -or $imageId -cnotmatch '^sha256:[0-9a-f]{64}$') { throw 'Cannot identify built image.' }
     Invoke-Native -Command docker -Arguments @('save', '--output', $archive, $image)
     $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
-    $prepare = "`$ErrorActionPreference='Stop'; New-Item -ItemType Directory -Force -Path '$remote' | Out-Null"
+    $prepare = "`$ErrorActionPreference='Stop'; if (-not (Test-Path -LiteralPath '$remoteRoot' -PathType Container)) { throw 'Deployment root must be provisioned by an administrator.' }; New-Item -ItemType Directory -Path '$remote' | Out-Null"
     Invoke-Native -Command ssh -Arguments ($options + @($destination, 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + (ConvertTo-EncodedCommand $prepare)))
     $remoteCreated = $true
     # -O uses legacy SCP supported by Windows OpenSSH without requiring SFTP drive mapping.
     $scpPath = $remote.Replace('\', '/')
     Invoke-Native -Command scp -Arguments ($options + @('-O', $archive, "${destination}:$scpPath/image.tar"))
     Invoke-Native -Command scp -Arguments ($options + @('-O', (Join-Path $PSScriptRoot 'Deploy-Remote.ps1'), "${destination}:$scpPath/Deploy-Remote.ps1"))
-    $deploy = "`$ErrorActionPreference='Stop'; try { & '$remote\Deploy-Remote.ps1' -Archive '$remote\image.tar' -ArchiveSha256 '$hash' -ImageId '$imageId' -Commit '$Commit' -DeploymentId '$id'; exit 0 } catch { Write-Error `$_; exit 1 }"
+    $sequenceText = $Sequence.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $deploy = "`$ErrorActionPreference='Stop'; try { & '$remote\Deploy-Remote.ps1' -Archive '$remote\image.tar' -ArchiveSha256 '$hash' -ImageId '$imageId' -Commit '$Commit' -DeploymentId '$id' -Sequence $sequenceText; exit 0 } catch { Write-Error `$_; exit 1 }"
     Invoke-Native -Command ssh -Arguments ($options + @($destination, 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + (ConvertTo-EncodedCommand $deploy)))
 }
 finally {
