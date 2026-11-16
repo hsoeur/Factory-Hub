@@ -1,0 +1,50 @@
+{
+  "execution_mode": "multi-agent",
+  "gates": {
+    "requirements": {
+      "status": "NOT RUN",
+      "required": true,
+      "evidence": [],
+      "reason": ""
+    },
+    "architecture": {
+      "status": "NOT RUN",
+      "required": true,
+      "evidence": [],
+      "reason": ""
+    },
+    "implementation": {
+      "status": "NOT RUN",
+      "required": true,
+      "evidence": [],
+      "reason": ""
+    },
+    "testing": {
+      "status": "NOT RUN",
+      "required": true,
+      "evidence": [],
+      "reason": ""
+    },
+    "security": {
+      "status": "NOT RUN",
+      "required": true,
+      "evidence": [],
+      "reason": ""
+    },
+    "review": {
+      "independent_required": false,
+      "independent_evidence": [],
+      "status": "NOT RUN",
+      "required": true,
+      "evidence": [],
+      "reason": ""
+    },
+    "delivery": {
+      "status": "NOT RUN",
+      "required": true,
+      "evidence": [],
+      "reason": ""
+    }
+  },
+  "risks": []
+}

@@ -1,0 +1,64 @@
+{
+  "new-project": [
+    "Requirements Analysis",
+    "Architecture Design",
+    "Project Initialization",
+    "Implementation",
+    "Automated Testing",
+    "Security Review",
+    "Code Review",
+    "Build Validation",
+    "Documentation",
+    "Final QA"
+  ],
+  "feature": [
+    "Codebase Exploration",
+    "Requirements and Impact Analysis",
+    "Minimal Architecture Design",
+    "Implementation",
+    "Targeted Tests",
+    "Regression Verification",
+    "Code Review",
+    "Documentation Update",
+    "Final QA"
+  ],
+  "bugfix": [
+    "Reproduction",
+    "Investigation",
+    "Root Cause Analysis",
+    "Failing Regression Test",
+    "Correction",
+    "Verification",
+    "Code Review",
+    "Final QA"
+  ],
+  "refactor": [
+    "Codebase Exploration",
+    "Risk Assessment",
+    "Baseline Tests",
+    "Incremental Refactoring",
+    "Behavioral Validation",
+    "Code Review",
+    "Final QA"
+  ],
+  "modernization": [
+    "Legacy Analysis",
+    "Compatibility Assessment",
+    "Migration Strategy",
+    "Incremental Migration",
+    "Automated Validation",
+    "Security and Regression Review",
+    "Documentation",
+    "Final QA"
+  ],
+  "maintenance": [
+    "Codebase Exploration",
+    "Baseline Measurements",
+    "Risk Assessment",
+    "Targeted Improvement",
+    "Automated Validation",
+    "Code Review",
+    "Documentation Update",
+    "Final QA"
+  ]
+}

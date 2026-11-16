@@ -1,0 +1,177 @@
+{
+  "name": "Software Engineering AI Fleet",
+  "version": "1.1.0",
+  "execution_modes": {
+    "solo-agent": "SEAF Solo-Agent",
+    "multi-agent": "SEAF Multi-Agent"
+  },
+  "default_execution_mode": "multi-agent",
+  "agents": [
+    {
+      "id": "seaf-engineering-orchestrator",
+      "number": 0,
+      "title": "Engineering Orchestrator",
+      "description": "Engineering Director and Multi-Agent Coordinator",
+      "skills": [],
+      "file": "agents/seaf-engineering-orchestrator.md"
+    },
+    {
+      "id": "seaf-product-analyst",
+      "number": 1,
+      "title": "Product Analyst",
+      "description": "Senior Product Manager and Requirements Engineer",
+      "skills": [
+        "seaf-requirements-engineering"
+      ],
+      "file": "agents/seaf-product-analyst.md"
+    },
+    {
+      "id": "seaf-codebase-analyst",
+      "number": 2,
+      "title": "Codebase Analyst",
+      "description": "Senior Software Reverse Engineering Specialist",
+      "skills": [
+        "seaf-project-discovery",
+        "seaf-existing-codebase-analysis"
+      ],
+      "file": "agents/seaf-codebase-analyst.md"
+    },
+    {
+      "id": "seaf-software-architect",
+      "number": 3,
+      "title": "Software Architect",
+      "description": "Principal Software Architect",
+      "skills": [
+        "seaf-software-architecture"
+      ],
+      "file": "agents/seaf-software-architect.md"
+    },
+    {
+      "id": "seaf-implementation-engineer",
+      "number": 4,
+      "title": "Implementation Engineer",
+      "description": "Staff Software Engineer",
+      "skills": [
+        "seaf-feature-implementation",
+        "seaf-clean-code-solid",
+        "seaf-root-cause-debugging",
+        "seaf-safe-refactoring"
+      ],
+      "file": "agents/seaf-implementation-engineer.md"
+    },
+    {
+      "id": "seaf-data-engineer",
+      "number": 5,
+      "title": "Data Engineer",
+      "description": "Senior Database and Persistence Engineer",
+      "skills": [
+        "seaf-database-design-migration"
+      ],
+      "file": "agents/seaf-data-engineer.md"
+    },
+    {
+      "id": "seaf-security-engineer",
+      "number": 6,
+      "title": "Security Engineer",
+      "description": "Application Security Engineer",
+      "skills": [
+        "seaf-security-audit"
+      ],
+      "file": "agents/seaf-security-engineer.md"
+    },
+    {
+      "id": "seaf-test-engineer",
+      "number": 7,
+      "title": "Test Engineer",
+      "description": "Senior Software Development Engineer in Test",
+      "skills": [
+        "seaf-automated-testing"
+      ],
+      "file": "agents/seaf-test-engineer.md"
+    },
+    {
+      "id": "seaf-code-reviewer",
+      "number": 8,
+      "title": "Code Reviewer",
+      "description": "Principal Engineer and Independent Reviewer",
+      "skills": [
+        "seaf-clean-code-solid"
+      ],
+      "file": "agents/seaf-code-reviewer.md"
+    },
+    {
+      "id": "seaf-performance-engineer",
+      "number": 9,
+      "title": "Performance Engineer",
+      "description": "Software Performance and Reliability Specialist",
+      "skills": [
+        "seaf-performance-analysis"
+      ],
+      "file": "agents/seaf-performance-engineer.md"
+    },
+    {
+      "id": "seaf-devops-engineer",
+      "number": 10,
+      "title": "DevOps Engineer",
+      "description": "Platform and DevOps Engineer",
+      "skills": [
+        "seaf-cicd-configuration"
+      ],
+      "file": "agents/seaf-devops-engineer.md"
+    },
+    {
+      "id": "seaf-documentation-engineer",
+      "number": 11,
+      "title": "Documentation Engineer",
+      "description": "Technical Documentation Specialist",
+      "skills": [
+        "seaf-technical-documentation"
+      ],
+      "file": "agents/seaf-documentation-engineer.md"
+    },
+    {
+      "id": "seaf-qa-release-manager",
+      "number": 12,
+      "title": "QA and Release Manager",
+      "description": "Quality Assurance and Release Engineer",
+      "skills": [
+        "seaf-release-validation"
+      ],
+      "file": "agents/seaf-qa-release-manager.md"
+    }
+  ],
+  "skills": [
+    "seaf-project-discovery",
+    "seaf-requirements-engineering",
+    "seaf-software-architecture",
+    "seaf-clean-code-solid",
+    "seaf-existing-codebase-analysis",
+    "seaf-feature-implementation",
+    "seaf-root-cause-debugging",
+    "seaf-safe-refactoring",
+    "seaf-database-design-migration",
+    "seaf-automated-testing",
+    "seaf-security-audit",
+    "seaf-performance-analysis",
+    "seaf-cicd-configuration",
+    "seaf-technical-documentation",
+    "seaf-release-validation"
+  ],
+  "workflows": [
+    "new-project",
+    "feature",
+    "bugfix",
+    "refactor",
+    "modernization",
+    "maintenance"
+  ],
+  "gates": [
+    "requirements",
+    "architecture",
+    "implementation",
+    "testing",
+    "security",
+    "review",
+    "delivery"
+  ]
+}

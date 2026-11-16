@@ -1,0 +1,15 @@
+{
+  "task_id": "",
+  "objective": "",
+  "context": "",
+  "scope": [],
+  "dependencies": [],
+  "assigned_agent": "",
+  "files_or_modules": [],
+  "constraints": [],
+  "expected_deliverables": [],
+  "acceptance_criteria": [],
+  "validation_evidence": [],
+  "status": "PENDING",
+  "risks_and_blockers": []
+}

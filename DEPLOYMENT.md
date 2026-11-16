@@ -26,3 +26,14 @@ New-NetFirewallRule -DisplayName "FactoryHub HTTP 12000" -Direction Inbound -Pro
 ```
 
 Après déploiement, FactoryHub est accessible à l’adresse `http://192.168.1.104:12000`.
+
+## Vérifier le premier affichage
+
+La page utilise les polices disponibles sur le poste, sans feuille Google Fonts
+externe : un filtrage Internet ne doit pas bloquer son rendu initial. Les liens
+vers les applications ne sont ouverts que sur action de l'utilisateur.
+
+Après redéploiement, vérifier dans les outils réseau du navigateur, cache désactivé,
+que le document et le logo sont chargés sans requête vers Google Fonts. Comparer
+le premier affichage sur le même poste et le même réseau. Si le document HTML
+lui-même tarde à arriver, examiner séparément l'accès à la VM et le serveur HTTP.
